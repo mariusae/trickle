@@ -1,0 +1,235 @@
+dnl $Id: configure.in,v 1.22 2004/02/13 06:14:01 marius Exp $
+AC_INIT(trickle.c)
+
+AC_CANONICAL_SYSTEM
+dnl AC_LIBTOOL_DLOPEN
+
+AM_INIT_AUTOMAKE(trickle, 1.07)
+AM_CONFIG_HEADER(config.h)
+
+AC_PROG_CC
+
+AM_PROG_LIBTOOL
+AC_PROG_MAKE_SET
+
+dnl intitialization
+if test "x$prefix" = "xNONE"; then
+    prefix="/usr/local"
+fi
+
+dnl Checks for programs.
+
+AC_PROG_RANLIB
+AC_PROG_INSTALL
+
+dnl Platform specific stuff
+case "$host" in
+*-*-hpux*)
+    AC_DEFINE(SPT_TYPE,SPT_PSTAT)
+    LIBS="$LIBS -lxnet -lsec"
+    ;;
+esac
+
+dnl Checks for standard libraries.
+AC_CHECK_LIB(socket, socket)
+AC_CHECK_LIB(nsl, gethostbyname)
+AC_CHECK_LIB(dl, dlopen, [ LIBDL="-ldl" 
+			   LIBS="$LIBS -ldl" ],,)
+AC_SUBST(LIBDL)
+dnl ugly ugly hack	
+AC_CHECK_LIB(c, err, [ ERRO="" ], [ ERRO="err.o" ],)
+AC_SUBST(ERRO)
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+
+dnl Check for __progname; from OpenSSHp
+AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [   
+        AC_TRY_LINK([],
+                [ extern char *__progname; printf("%s", __progname); ],
+                [ ac_cv_libc_defines___progname="yes" ],
+                [ ac_cv_libc_defines___progname="no" ]
+        )
+])
+if test "x$ac_cv_libc_defines___progname" = "xyes" ; then
+   AC_DEFINE(HAVE___PROGNAME)
+fi
+
+AC_CHECK_HEADERS(sys/ioctl.h sys/time.h err.h time.h unistd.h stdint.h netinet/in.h asm/poll.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_HEADER_TIME
+AC_CHECK_TYPE(u_int64_t, unsigned long long)
+AC_CHECK_TYPE(u_int32_t, unsigned int)
+AC_CHECK_TYPE(u_int16_t, unsigned short)
+AC_CHECK_TYPE(u_int8_t, unsigned char)
+AC_CHECK_TYPE(in_addr_t, unsigned long)
+
+dnl Checks for library functions.
+AC_PROG_GCC_TRADITIONAL
+AC_TYPE_SIGNAL
+AC_CHECK_FUNCS(socket)
+AC_REPLACE_FUNCS(strlcat strlcpy daemon setenv strsep)
+
+dnl XXX
+AC_CHECK_FUNCS(sendfile)
+
+dnl Checks for libevent
+AC_MSG_CHECKING(for libevent)
+AC_ARG_WITH(libevent,
+[  --with-libevent=DIR     use libevent in DIR],
+[ case "$withval" in
+  yes|no)
+     AC_MSG_RESULT(no)
+     ;;
+  *)
+     AC_MSG_RESULT($withval)
+     if test -f $withval/include/event.h -a -f $withval/lib/libevent.a; then
+        owd=`pwd`
+        if cd $withval; then withval=`pwd`; cd $owd; fi
+        EVENTINC="-I$withval/include"
+        EVENTLIB="-L$withval/lib -levent"
+     elif test -f $withval/event.h -a -f $withval/libevent.a; then
+        owd=`pwd`
+        if cd $withval; then withval=`pwd`; cd $owd; fi
+        EVENTINC="-I$withval"
+        EVENTLIB="-L$withval -levent"
+     else
+        AC_ERROR(event.h or libevent.a not found in $withval)
+     fi
+     ;;
+  esac ],
+[ if test -f ${prefix}/include/event.h -a -f ${prefix}/lib/libevent.a;
+then
+     EVENTINC="-I${prefix}/include"
+     EVENTLIB="-L${prefix}/lib -levent"
+  elif test -f /usr/include/event.h; then
+     EVENTLIB="-levent"
+  else
+     AC_MSG_RESULT(no)
+     AC_ERROR(libevent not found)
+  fi
+  AC_MSG_RESULT(yes) ]
+)
+AC_SUBST(EVENTINC)
+AC_SUBST(EVENTLIB)
+
+dnl check if underscores are needed
+AC_MSG_CHECKING(if underscores are needed for symbols)
+AC_TRY_RUN(
+#include <dlfcn.h>
+#include <stdio.h>
+
+int underscoreprobe(void) { return (31415); }
+
+int
+main(int argc, char **argv)
+{
+	void *dh;
+
+	if ((dh = dlopen(NULL, 0)) == NULL)
+		exit(1);
+
+	if (dlsym(dh, "_underscoreprobe") != NULL)
+		exit(0);
+
+	exit(1);	
+}, [AC_MSG_RESULT(yes)
+   AC_DEFINE(DL_NEED_UNDERSCORE)], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+
+HAVEMETHOD=no
+
+AC_MSG_CHECKING(if we can access libc without dlopen)
+AC_TRY_RUN(
+#include <dlfcn.h>
+#include <stdio.h>
+
+int
+main(int argc, char **argv)
+{
+	void *dh;
+
+	dh = (void *)-1L;
+
+	if (dlsym(dh, "printf") != NULL || dlsym(dh, "_printf") != NULL)
+		exit(0);
+
+	exit(1);
+}, [AC_MSG_RESULT(yes)
+    AC_DEFINE(NODLOPEN)
+    HAVEMETHOD=yes], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+
+if test "$HAVEMETHOD" = "no"; then
+    dnl ugly, ugly hack		     
+    LIBCGUESS=`echo /lib/libc.so.*`
+    USRLIBCGUESS=`echo /usr/lib/libc.so*`
+    
+    if test "$USRLIBCGUESS" = "/usr/lib/libc.so.*"; then
+       USRLIBCGUESS=""
+    fi
+    
+    if test "$LIBCGUESS" = "/lib/libc.so.*"; then
+       LIBCGUESS=""
+    fi
+    
+    for TESTLIB in libc.so `echo $USRLIBCGUESS` `echo $LIBCGUESS`
+    do
+        AC_MSG_CHECKING(if we can access libc with $TESTLIB)
+        AC_TRY_RUN(
+        #include <dlfcn.h>
+        #include <stdio.h>
+    
+        int
+        main(int argc, char **argv)
+        {
+    	    void *dh;
+    
+    	    if (dlopen("$TESTLIB", RTLD_LAZY) != NULL)
+    	           exit(0);
+    
+            exit(1);
+        }, [AC_MSG_RESULT(yes)
+            AC_DEFINE_UNQUOTED(DLOPENLIBC, "$TESTLIB")
+	    HAVEMETHOD=yes], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+
+	if test "$HAVEMETHOD" = "yes"; then
+	   break
+	fi
+    done
+fi
+
+if test "$HAVEMETHOD" = "no"; then
+   AC_MSG_ERROR(Couldn't figure out how to access libc)
+fi
+
+if test "x$sysconfdir" = "x$prefix/etc"; then
+    csysconfdir="$prefix/etc"
+else
+    csysconfdir="$sysconfdir"
+fi
+
+clibdir="$prefix/lib/trickle"
+
+AC_DEFINE_UNQUOTED(SYSCONFDIR, "$csysconfdir")
+AC_DEFINE_UNQUOTED(LIBDIR, "$clibdir")
+
+havesendfile=no
+AC_CHECK_FUNCS(sendfile, [havesendfile=yes], )
+if test "$havesendfile" = "yes"; then
+   AC_DEFINE(HAVE_SENDFILE, 1, [Define if your system has the sendfile system call])
+fi
+
+dnl according to http://www.gnu.org/software/autoconf/manual/autoconf-2.57/html_node/autoconf_165.html
+dnl this is no longer needed.
+
+dnl This is necessary so that .o files in LIBOBJS are also built via
+dnl the ANSI2KNR-filtering rules.
+LL=`echo "$AC_LIBOBJ" | sed 's/\.o /\$U.o /g;s/\.o$/\$U.o/'`
+LTLIBOBJS=`echo "$LL" | sed 's/\.o/\.lo/g'`
+AC_SUBST(LTLIBOBJS)
+
+AC_OUTPUT(Makefile)

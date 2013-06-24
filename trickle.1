@@ -1,0 +1,135 @@
+.\"	$OpenBSD: mdoc.template,v 1.6 2001/02/03 08:22:44 niklas Exp $
+.\"
+.\" The following requests are required for all man pages.
+.Dd November 10, 2002
+.Dt TRICKLE 1
+.Os
+.Sh NAME
+.Nm trickle
+.Nd a lightweight userspace bandwidth shaper
+.Sh SYNOPSIS
+.\" For a program:  program [-abc] file ...
+.Nm trickle
+.Op Fl h 
+.Op Fl v
+.Op Fl V
+.Op Fl s
+.Op Fl d Ar rate
+.Op Fl u Ar rate
+.Op Fl w Ar length
+.Op Fl t Ar time
+.Op Fl l Ar length
+.Op Fl n Ar path
+.Ar command ...
+.Sh DESCRIPTION
+.Nm
+is a userspace bandwidth manager.  Currently, 
+.Nm
+supports the shaping of any SOCK_STREAM (see
+.Xr socket 2 )
+connection established via the 
+.Xr socket 2
+interface.  Furthermore, 
+.Nm
+will not work with statically linked executables, nor with 
+.Xr setuid 2
+executables.
+.Nm
+is highly configurable; download and upload rates can be set
+separately, or in an aggregate fashion.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds_imagedir
+.It Fl h
+Displays help.
+.It Fl v
+Increases the verbosity level (can be specified multiple times).
+.It Fl V
+Prints version.
+.It Fl s
+Runs trickle in standalone mode, independent of 
+.Xr trickled 8 .
+.It Fl d Ar rate
+Limit the download bandwidth consumption to 
+.Ar rate
+KB/s.
+.It Fl u Ar rate
+Limit the upload bandwidth consumption to 
+.Ar rate
+KB/s.
+.It Fl w Ar length
+Set peak detection window size to 
+.Ar length
+KB.  This determines how aggressive 
+.Nm
+is at eliminating bandwidth consumption peaks.  Lower values will be
+more aggressive, but may also result in over shaping.  The default
+value (512 KB) is usually sufficient.
+.It Fl t Ar seconds
+Set smoothing time to
+.Ar seconds 
+s.  The smoothing time determines with what intervals 
+.Nm
+will try to let the application transcieve data.  Smaller values will
+result in a more continuous (smooth) session, while larger values may
+produce bursts in the sending and receiving data.  Smaller values (0.1
+- 1 s) are ideal for interactive applications while slightly larger
+values (1 - 10 s) are better for applications that need bulk transfer.
+.It Fl l Ar length
+Set smoothing length to
+.Ar length 
+KB.  The smoothing length is a fallback of the smoothing time.  If 
+.Nm
+cannot meet the requested smoothing time, it will instead fall back on
+sending 
+.Ar length
+KB of data.  The default value is 10 KB.
+.It Fl n Ar path
+Use 
+.Xr trickled 8
+socket 
+.Ar path 
+to communicate with 
+.Xr trickled 8 .
+By default, 
+.Ar /tmp/.trickled.sock
+is used.
+.Sh EXAMPLES
+.Cm trickle -u 10 -d 20 ncftp
+.Pp
+Launch
+.Xr ncftp 1
+limiting its upload capacity to 10 KB/s, and download capacity at 20
+KB/s.
+.\" This next request is for sections 2 and 3 function return values only.
+.\" .Sh RETURN VALUES
+.\" The next request is for sections 2 and 3 error and signal handling only.
+.\" .Sh ERRORS
+.\" This next request is for section 4 only.
+.\" .Sh DIAGNOSTICS
+.\" This next request is for sections 1, 6, 7 & 8 only.
+.\" .Sh ENVIRONMENT
+.\" .Sh FILES
+.Sh SEE ALSO
+.Xr trickled 8 ,
+.Xr syslog 3 ,
+.Xr socket 2 ,
+.Xr netintro 4 
+.\" .Sh COMPATIBILITY
+.\".Sh ACKNOWLEDGEMENTS
+.\"This product includes software developed by Ericsson Radio Systems.
+.\".Pp
+.\"This product includes software developed by the University of
+.\"California, Berkeley and its contributors.
+.Sh AUTHORS
+.Nm
+has been developed by Marius Aamodt Eriksen
+.Aq marius@monkey.org .
+.\" .Sh HISTORY
+.Sh BUGS
+Does not support executables utilizing
+.Xr kqueue 2 .  
+Does not support statically linked executables.
+.\"Please report any bugs to Marius Aamodt Eriksen 
+.\".Aq marius@monkey.org .
+.\" .Sh CAVEATS

@@ -1,0 +1,140 @@
+.\"	$OpenBSD: mdoc.template,v 1.6 2001/02/03 08:22:44 niklas Exp $
+.\"
+.\" The following requests are required for all man pages.
+.Dd February 27, 2003
+.Dt TRICKLED 8
+.Os
+.Sh NAME
+.Nm trickled
+.Nd userspace bandwidth manager daemon
+.Sh SYNOPSIS
+.\" For a program:  program [-abc] file ...
+.Nm trickled
+.Op Fl h
+.Op Fl v
+.Op Fl V
+.Op Fl f
+.Op Fl s
+.Op Fl d Ar rate
+.Op Fl u Ar rate
+.Op Fl t Ar seconds
+.Op Fl l Ar length
+.Op Fl p Ar priority
+.Op Fl c Ar file
+.Op Fl n Ar path
+.Op Fl N Ar seconds
+.Op Fl w Ar size
+.Sh DESCRIPTION
+.Nm
+is a userspace bandwidth manager daemon.
+.Nm
+manages several
+.Xr trickle 1
+sessions at a time, shaping across multiple sessions.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds_imagedir
+.It Fl v
+Increases the verbosity level (can be specified multiple times).
+.It Fl V
+Prints version.
+.It Fl f
+Runs
+.Nm
+in the foreground.
+.It Fl s
+Uses syslog for all output (instead of stderr).
+.It Fl d Ar rate
+Limit the download bandwidth consumption to 
+.Ar rate
+KB/s.
+.It Fl u Ar rate
+Limit the upload bandwidth consumption to 
+.Ar rate
+KB/s.
+.It Fl t Ar seconds
+Set smoothing time to
+.Ar seconds 
+s.  The smoothing time determines with what intervals 
+.Nm
+will try to let the application transcieve data.  Smaller values will
+result in a more continuous (smooth) session, while larger values may
+produce bursts in the sending and receiving data.  Smaller values (0.1
+- 1 s) are ideal for interactive applications while slightly larger
+values (1 - 10 s) are better for applications that need bulk transfer.
+This parameter is customizable on a per-application basis via
+.Xr trickled.conf 5 .
+The default value is 5 s.
+.It Fl l Ar length
+Set smoothing length to
+.Ar length 
+KB.  The smoothing length is a fallback of the smoothing time.  If 
+.Nm
+cannot meet the requested smoothing time, it will instead fall back on
+sending 
+.Ar length
+KB of data.  The default value is 10 KB.
+.It Fl p Ar priority
+Set default priority to 
+.Ar priority .
+.It Fl c Ar file
+Use the configuration file
+.Ar file .
+This file must be of the format documented in 
+.Xr trickled.conf 5 .
+.It Fl n Ar path
+Set socket name to 
+.Ar path .
+By default, 
+.Nm
+uses
+.Ar /tmp/.trickled.sock .
+.It Fl N Ar seconds
+Notifies user of total bandwidth consumption every
+.Ar seconds
+s.
+.It Fl w Ar size
+Set peak detection window size to 
+.Ar size
+KB.  This determines how aggressive 
+.Nm
+is at eliminating bandwidth consumption peaks.  Lower values will be
+more aggressive, but may also result in over shaping.  The default
+value (512 KB) is usually sufficient.
+.Sh EXAMPLES
+.Cm trickled -u 10 -d 20
+.Pp
+Limit aggregate 
+.Xr trickle 1
+upload bandwidth consumption to 10 KB/s and download consumption to 20 KB/s.
+.\" This next request is for sections 2 and 3 function return values only.
+.\" .Sh RETURN VALUES
+.\" The next request is for sections 2 and 3 error and signal handling only.
+.\" .Sh ERRORS
+.\" This next request is for section 4 only.
+.\" .Sh DIAGNOSTICS
+.\" This next request is for sections 1, 6, 7 & 8 only.
+.\" .Sh ENVIRONMENT
+.\" .Sh FILES
+.Sh SEE ALSO
+.Xr trickle 1 ,
+.Xr trickled.conf 5 ,
+.Xr syslog 3 ,
+.Xr netintro 4
+.\" .Sh COMPATIBILITY
+.\".Sh ACKNOWLEDGEMENTS
+.\"This product includes software developed by Ericsson Radio Systems.
+.\".Pp
+.\"This product includes software developed by the University of
+.\"California, Berkeley and its contributors.
+.Sh AUTHORS
+.Nm
+has been developed by Marius Aamodt Eriksen
+.Aq marius@monkey.org .
+.\" .Sh HISTORY
+.\" .Sh BUGS
+.\" Does not support executables utilizing
+.\" .Xr kqueue 2 .
+.\" Please report any bugs to Marius Aamodt Eriksen 
+.\" .Aq marius@monkey.org .
+.\" .Sh CAVEATS

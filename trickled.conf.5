@@ -1,0 +1,83 @@
+.\"	$OpenBSD: mdoc.template,v 1.6 2001/02/03 08:22:44 niklas Exp $
+.\"
+.\" The following requests are required for all man pages.
+.Dd March 3, 2003
+.Dt TRICKLED.CONF 5
+.Os
+.Sh NAME
+.Nm trickled.conf
+.Nd format of the configuration file used by
+.Xr trickled 8 .
+.Sh DESCRIPTION
+The configuration file format is quite simple.  Sections are delimited
+by square brackets:
+.Pp
+.Rs
+[Section]
+.Re
+.Pp
+And options within brackets sections are simple key value pairs:
+.Pp
+.Rs
+Option = Value
+.Re
+.Pp
+.Sh OPTIONS
+Per-application customizable variables are specified within sections
+with section names matching the application name.  The options are:
+.Bl -tag -width Ds
+.It Cm Priority
+Sets the priority of the application, see 
+.Xr trickled 8
+for details.
+.It Cm Time-Smoothing
+Sets the time smoothing parameter of the application, see 
+.Xr trickled 8
+for an details.
+.It Cm Length-Smoothing
+Sets the length smoothing parameter of the application, see
+.Xr trickled 8
+for details.
+.Sh EXAMPLES
+.Pp
+.nf
+[ssh]
+Priority = 1
+Time-Smoothing = 0.1
+Length-Smoothing = 2
+[ftp]
+Priority = 8
+Time-Smoothing = 5
+Length-Smoothing = 20
+.fi
+.Pp
+.\" This next request is for sections 2 and 3 function return values only.
+.\" .Sh RETURN VALUES
+.\" The next request is for sections 2 and 3 error and signal handling only.
+.\" .Sh ERRORS
+.\" This next request is for section 4 only.
+.\" .Sh DIAGNOSTICS
+.\" This next request is for sections 1, 6, 7 & 8 only.
+.\" .Sh ENVIRONMENT
+.\" .Sh FILES
+.Sh SEE ALSO
+.Xr trickle 1 ,
+.Xr syslog 3 ,
+.Xr netintro 4
+.\" .Sh COMPATIBILITY
+.\".Sh ACKNOWLEDGEMENTS
+.\"This product includes software developed by Ericsson Radio Systems.
+.\".Pp
+.\"This product includes software developed by the University of
+.\"California, Berkeley and its contributors.
+.Sh AUTHORS
+.Nm
+has been developed by Marius Aamodt Eriksen
+.Aq marius@monkey.org .
+.\" .Sh HISTORY
+.\" .Sh BUGS
+.\" Does not support executables utilizing
+.\" .Xr kqueue 2 .
+.\" Please report any bugs to Marius Aamodt Eriksen 
+.\" .Aq marius@monkey.org .
+.\" .Sh CAVEATS

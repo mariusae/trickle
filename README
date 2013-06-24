@@ -1,7 +1,6 @@
---------------------------------------------------------------------------------
-trickle 1.07
---------------------------------------------------------------------------------
-   by Marius Aamodt Eriksen <marius@monkey.org>
+TRICKLE
+
+  by Marius Aamodt Eriksen <marius@monkey.org>
 
    http://monkey.org/~marius/trickle
 
@@ -43,7 +42,7 @@ THANKS
    Tony Kurc 
        for the awesome logo.
 
-   Dag Wieërs <dag@wieers.com>
+   Dag Wieï¿½rs <dag@wieers.com>
        for the RedHat SPEC. 
 
    Niels Provos <provos@citi.umich.edu>,

@@ -1,0 +1,2 @@
+script:
+	automake && autoconf && ./configure && make

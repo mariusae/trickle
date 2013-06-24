@@ -1,2 +1,2 @@
-script:
-	automake && autoconf && ./configure && make
+language: c
+script: automake && autoconf && ./configure && make

@@ -393,18 +393,14 @@ select_delay(struct delayhead *dhead, struct sockdesc *sd, short which)
 }
 
 static struct delay *
-select_shift(struct delayhead *dhead, struct timeval *inittv,
+select_shift(struct delayhead *dhead, struct timeval *difftv,
     struct timeval **delaytv)
 {
-	struct timeval curtv, difftv;
 	struct delay *d;
 	struct sockdesc *sd;
 
-	gettimeofday(&curtv, NULL);
-	timersub(&curtv, inittv, &difftv);
-
 	TAILQ_FOREACH(d, dhead, next) {
-		if (timercmp(&d->delaytv, &difftv, >))
+		if (timercmp(&d->delaytv, difftv, >))
 			break;
 		sd = d->sd;
 
@@ -413,7 +409,7 @@ select_shift(struct delayhead *dhead, struct timeval *inittv,
 	}
 
 	if (d != NULL)
-		timersub(&d->delaytv, &difftv, *delaytv);
+		timersub(&d->delaytv, difftv, *delaytv);
 	else 
 		*delaytv = NULL;
 
@@ -431,8 +427,8 @@ _select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 {
 	struct sockdesc *sd;
 	fd_set *fdsets[] = { wfds, rfds }, *fds;
-	struct timeval *delaytv, *selecttv = NULL, *timeout = NULL, _timeout,
-	    inittv, curtv, difftv;
+	struct timeval *delaytv, _delaytv, *selecttv = NULL, *timeout = NULL,
+	    _timeout, inittv, curtv, difftv;
 	short which;
 	struct delayhead dhead;
 	struct delay *d, *_d;
@@ -462,15 +458,18 @@ _select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 			    FD_ISSET(sd->sock, fds) &&
 			    select_delay(&dhead, sd, which)) {
 				FD_CLR(sd->sock, fds);
-				nfds--;
 			}
 
 	gettimeofday(&inittv, NULL);
 	curtv = inittv;
 	d = TAILQ_FIRST(&dhead);
-	delaytv = d != NULL ? &d->delaytv : NULL;
+	if (d != NULL) {
+		_delaytv = d->delaytv;
+		delaytv = &_delaytv;
+	} else
+		delaytv = NULL;
+	timersub(&curtv, &inittv, &difftv);
  again:
-	timersub(&inittv, &curtv, &difftv);
 	selecttv = NULL;
 
 	if (delaytv != NULL)
@@ -498,15 +497,15 @@ _select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 #endif /* DEBUG */
 
 	if (ret == 0 && delaytv != NULL && selecttv == delaytv) {
-		_d = select_shift(&dhead, &inittv, &delaytv);
+		gettimeofday(&curtv, NULL);
+		timersub(&curtv, &inittv, &difftv);
+		_d = select_shift(&dhead, &difftv, &delaytv);
 		while ((d = TAILQ_FIRST(&dhead)) != _d) {
 			FD_SET(d->sd->sock, fdsets[d->which]);
-			nfds++;
 			TAILQ_REMOVE(&dhead, d, next);
 			free(d);
 		}
 
-		gettimeofday(&curtv, NULL);
 		goto again;
 	}
 

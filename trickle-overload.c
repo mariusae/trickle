@@ -311,7 +311,6 @@ socket(int domain, int type, int protocol)
 		}
 
 		/* All sockets are equals. */
-		sd->stat->pts = 1;
 		sd->stat->lsmooth = lsmooth;
 		sd->stat->tsmooth = tsmooth;
 		sd->sock = sock;
@@ -993,7 +992,6 @@ accept(int sock, struct sockaddr *addr, socklen_t *addrlen)
 		}
 
 		sd->sock = ret;
-		sd->stat->pts = 1;
 		sd->stat->lsmooth = lsmooth;
 		sd->stat->tsmooth = tsmooth;
 		TAILQ_INSERT_TAIL(&sdhead, sd, next);

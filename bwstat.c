@@ -69,6 +69,7 @@ bwstat_new(void)
 	if ((bs = calloc(1, sizeof(*bs))) == NULL)
 		return (NULL);
 
+	bs->pts = 1;
 	TAILQ_INSERT_TAIL(&statq, bs, next);
 
 	return (bs);
@@ -143,7 +144,8 @@ _bwstat_update(struct bwstat_data *bsd, size_t len)
 struct timeval *
 bwstat_getdelay(struct bwstat *bs, size_t *len, uint lim, short which)
 {
-	uint rate = 0, ncli = 0, npts = 0, pool = 0, ent, xent;
+	uint rate = 0, npts = 0, ent;
+	int ncli = 0, pool = 0, xent;
 	double delay;
 	static struct timeval tv;
 	struct bwstathead poolq;
@@ -201,7 +203,7 @@ bwstat_getdelay(struct bwstat *bs, size_t *len, uint lim, short which)
 		if (ncli > 0) {
 			xent = pool / npts;
 
-			if (xent == 0)
+			if (xent <= 0)
 				break;
 
 			TAILQ_FOREACH(xbs, &poolq, qnext)

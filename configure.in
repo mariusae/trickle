@@ -1,11 +1,14 @@
 dnl $Id: configure.in,v 1.22 2004/02/13 06:14:01 marius Exp $
-AC_INIT(trickle.c)
+AC_INIT([trickle], [1.07])
+AC_CONFIG_SRCDIR([trickle.c])
 
 AC_CANONICAL_SYSTEM
 dnl AC_LIBTOOL_DLOPEN
 
-AM_INIT_AUTOMAKE(trickle, 1.07)
+AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
+
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_CC
 
@@ -44,6 +47,19 @@ dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
+dnl Checks for pthread
+threadsafe="yes"
+
+AC_ARG_ENABLE([threadsafe],
+	[AC_HELP_STRING([--disable-threadsafe],[disable trickle thread safety (default enabled)])],
+	[threadsafe=$enableval]
+	)
+
+if test "x$threadsafe" = xyes; then
+	AX_PTHREAD([AC_DEFINE([HAVE_PTHREAD],[1],[Define if you have POSIX threads libraries and header files.])],
+	[AC_MSG_ERROR(cannot find pthread. use configure script option --disable-threadsafe to compile trickle without thread safety)])
+fi
+
 dnl Check for __progname; from OpenSSHp
 AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [   
         AC_TRY_LINK([],
@@ -67,7 +83,7 @@ AC_CHECK_TYPE(u_int64_t, unsigned long long)
 AC_CHECK_TYPE(u_int32_t, unsigned int)
 AC_CHECK_TYPE(u_int16_t, unsigned short)
 AC_CHECK_TYPE(u_int8_t, unsigned char)
-AC_CHECK_TYPE(in_addr_t, unsigned long)
+AC_CHECK_TYPE(in_addr_t, [], [AC_DEFINE([in_addr_t],[unsigned long],[])], [#include <netinet/in.h>])
 
 dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
@@ -203,7 +219,7 @@ if test "$HAVEMETHOD" = "no"; then
 fi
 
 if test "$HAVEMETHOD" = "no"; then
-   AC_MSG_ERROR(Couldn't figure out how to access libc)
+   AC_MSG_ERROR(cannot figure out how to access libc)
 fi
 
 if test "x$sysconfdir" = "x$prefix/etc"; then
@@ -223,13 +239,5 @@ if test "$havesendfile" = "yes"; then
    AC_DEFINE(HAVE_SENDFILE, 1, [Define if your system has the sendfile system call])
 fi
 
-dnl according to http://www.gnu.org/software/autoconf/manual/autoconf-2.57/html_node/autoconf_165.html
-dnl this is no longer needed.
-
-dnl This is necessary so that .o files in LIBOBJS are also built via
-dnl the ANSI2KNR-filtering rules.
-LL=`echo "$AC_LIBOBJ" | sed 's/\.o /\$U.o /g;s/\.o$/\$U.o/'`
-LTLIBOBJS=`echo "$LL" | sed 's/\.o/\.lo/g'`
-AC_SUBST(LTLIBOBJS)
-
 AC_OUTPUT(Makefile)
+

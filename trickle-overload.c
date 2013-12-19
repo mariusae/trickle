@@ -50,6 +50,7 @@
 #endif /* HAVE_STDINT_H */
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
+#include <signal.h>
 #endif
 #include "bwstat.h"
 #include "trickle.h"
@@ -107,26 +108,6 @@ static double tsmooth;
 static uint lsmooth/* , latency */;
 static int trickled, initialized, initializing;
 /* XXX initializing - volatile? */
-
-#ifdef HAVE_PTHREAD
-static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
-
-static void trickle_lock()
-{
-	pthread_mutex_lock(&global_lock);
-}
-
-static void trickle_unlock()
-{
-	pthread_mutex_unlock(&global_lock);
-}
-
-#else
-
-static void trickle_lock() {}
-static void trickle_unlock() {}
-
-#endif
 
 #define DECLARE(name, ret, args) static ret (*libc_##name) args
 
@@ -193,6 +174,55 @@ void                   safe_printv(int, const char *, ...);
 	if ((libc_##x = dlsym(dh, UNDERSCORE #x)) == NULL)		\
 		errx(0, "[trickle] Failed to get " #x "() address");	\
 } while (0)
+
+#ifdef HAVE_PTHREAD
+
+DECLARE(pthread_sigmask, int, (int, const sigset_t *, sigset_t *));
+
+static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/*
+ * Because, select(),poll(), read(), write() and many other overloaded functions are
+ * normally reentrant from signal handlers, we need to block all signals while we hold
+ * mutex or else we can deadlock.
+ */
+static sigset_t oset;
+
+static void trickle_lock()
+{
+#ifdef NODLOPEN
+	sigset_t mask;
+	sigfillset(&mask);
+        void *dh = (void *) -1L;
+	/*
+	 * This hack is not nice but I haven't found a better solution.
+	 * You need to load dynamically pthread_sigmask() and you must synchronize
+	 * threads around trickle_init(). trickle_init() must be executed only once
+	 * if more than 1 thread enter trickle-overload while initialization is performed
+	 * they must wait until initialization is completed before continuing. Hence the
+	 * only place that I have found we could load pthread_sigmask() is here.
+	 */
+	if (!libc_pthread_sigmask)
+		GETADDR(pthread_sigmask);
+	(*libc_pthread_sigmask)(SIG_SETMASK,&mask,&oset);
+#endif
+	pthread_mutex_lock(&global_lock);
+}
+
+static void trickle_unlock()
+{
+	pthread_mutex_unlock(&global_lock);
+#ifdef NODLOPEN
+	(*libc_pthread_sigmask)(SIG_SETMASK,&oset,NULL);
+#endif
+}
+
+#else
+
+static void trickle_lock() {}
+static void trickle_unlock() {}
+
+#endif
 
 static void
 trickle_init(void)

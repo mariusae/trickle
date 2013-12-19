@@ -31,7 +31,7 @@ tricklectl_LDADD = @ERRO@ $(LIBOBJS)
 AM_CFLAGS = -Wall -Icompat @EVENTINC@
 
 overloaddir = $(libdir)
-overload_DATA = libtrickle.so
+overload_DATA = 
 
 libtrickle.so: trickle-overload.c atomicio.c
 $(overload_DATA):

@@ -177,6 +177,10 @@ void                   safe_printv(int, const char *, ...);
 
 #ifdef HAVE_PTHREAD
 
+#define LOCK_VAR sigset_t oset
+#define TRICKLE_LOCK trickle_lock(&oset)
+#define TRICKLE_UNLOCK trickle_unlock(&oset)
+
 DECLARE(pthread_sigmask, int, (int, const sigset_t *, sigset_t *));
 
 static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -186,9 +190,7 @@ static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
  * normally reentrant from signal handlers, we need to block all signals while we hold
  * mutex or else we can deadlock.
  */
-static sigset_t oset;
-
-static void trickle_lock()
+static void trickle_lock(sigset_t *oset)
 {
 #ifdef NODLOPEN
 	sigset_t mask;
@@ -204,23 +206,24 @@ static void trickle_lock()
 	 */
 	if (!libc_pthread_sigmask)
 		GETADDR(pthread_sigmask);
-	(*libc_pthread_sigmask)(SIG_SETMASK,&mask,&oset);
+	(*libc_pthread_sigmask)(SIG_SETMASK,&mask,oset);
 #endif
 	pthread_mutex_lock(&global_lock);
 }
 
-static void trickle_unlock()
+static void trickle_unlock(sigset_t *oset)
 {
 	pthread_mutex_unlock(&global_lock);
 #ifdef NODLOPEN
-	(*libc_pthread_sigmask)(SIG_SETMASK,&oset,NULL);
+	(*libc_pthread_sigmask)(SIG_SETMASK,oset,NULL);
 #endif
 }
 
 #else
 
-static void trickle_lock() {}
-static void trickle_unlock() {}
+#define LOCK_VAR
+#define TRICKLE_LOCK
+#define TRICKLE_UNLOCK
 
 #endif
 
@@ -344,9 +347,10 @@ socket(int domain, int type, int protocol)
 {
 	int sock;
 	struct sockdesc *sd;
-	trickle_lock();
+	LOCK_VAR;
+	TRICKLE_LOCK;
 	INIT;
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	sock = (*libc_socket)(domain, type, protocol);
 
@@ -358,9 +362,9 @@ socket(int domain, int type, int protocol)
 	if (sock != -1 && domain == AF_INET && type == SOCK_STREAM) {
 		if ((sd = calloc(1, sizeof(*sd))) == NULL)
 			return (-1);
-		trickle_lock();
+		TRICKLE_LOCK;
 		if ((sd->stat = bwstat_new()) == NULL) {
-			trickle_unlock();
+			TRICKLE_UNLOCK;
 			free(sd);
 			return (-1);
 		}
@@ -371,7 +375,7 @@ socket(int domain, int type, int protocol)
 		sd->sock = sock;
 
 		TAILQ_INSERT_TAIL(&sdhead, sd, next);
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 	}
 
 	return (sock);
@@ -381,8 +385,9 @@ int
 close(int fd)
 {
 	struct sockdesc *sd, *next;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 #ifdef DEBUG
@@ -403,7 +408,7 @@ close(int fd)
 		trickled_close(&trickled);
 		trickled_open(&trickled);
 	}
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	return ((*libc_close)(fd));
 }
@@ -490,6 +495,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 	struct delayhead dhead;
 	struct delay *d, *_d;
 	int ret;
+	LOCK_VAR;
 
 #ifdef DEBUG
 	safe_printv(0, "[DEBUG] select(%d)", nfds);
@@ -503,7 +509,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 		timeout = &_timeout;
 	} 
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	/*
@@ -547,9 +553,9 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 #ifdef DEBUG
 	safe_printv(0, "[DEBUG] IN select(%d)", nfds);
 #endif /* DEBUG */
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 	ret = (*libc_select)(nfds, rfds, wfds, efds, selecttv);
-	trickle_lock();
+	TRICKLE_LOCK;
 
 #ifdef DEBUG
 	safe_printv(0, "[DEBUG] OUT select(%d) = %d", nfds, ret);
@@ -573,7 +579,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 		TAILQ_REMOVE(&dhead, d, next);
 		free(d);
 	}
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	return (ret);
 }
@@ -599,6 +605,7 @@ poll(struct pollfd *fds, int nfds, int __timeout)
 	struct timeval inittv, curtv, _timeout, *timeout = NULL, *delaytv,
 	    *polltv, difftv;
 	struct delayhead dhead;
+	LOCK_VAR;
 
 #if defined(DEBUG) || defined(DEBUG_POLL)
 	safe_printv(0, "[DEBUG] poll(*, %d, %d)", nfds, __timeout);
@@ -612,7 +619,7 @@ poll(struct pollfd *fds, int nfds, int __timeout)
 
 	TAILQ_INIT(&dhead);
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	for (i = 0; i < nfds; i++) {
@@ -668,13 +675,13 @@ poll(struct pollfd *fds, int nfds, int __timeout)
 #if defined(DEBUG) || defined(DEBUG_POLL)
 	safe_printv(0, "[DEBUG] IN poll(*, %d, %d)", nfds, polltimeout);
 #endif /* DEBUG */
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 	ret = (*libc_poll)((struct pollfd *)fds, (int)nfds, (int)polltimeout);
 
 #if defined(DEBUG) || defined(DEBUG_POLL)
 	safe_printv(0, "[DEBUG] OUT poll(%d) = %d", nfds, ret);
 #endif /* DEBUG */
-	trickle_lock();
+	TRICKLE_LOCK;
 	if (ret == 0 && delaytv != NULL && polltv == delaytv) {
 		_d = select_shift(&dhead, &inittv, &delaytv);
 		while ((d = TAILQ_FIRST(&dhead)) != NULL && d != _d) {
@@ -694,7 +701,7 @@ poll(struct pollfd *fds, int nfds, int __timeout)
 		TAILQ_REMOVE(&dhead, d, next);
 		free(d);
 	}
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 	return (ret);
 }
 
@@ -704,14 +711,15 @@ read(int fd, void *buf, size_t nbytes)
 	ssize_t ret = -1;
 	size_t xnbytes = nbytes;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(fd, &xnbytes, TRICKLE_RECV) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_read)(fd, buf, xnbytes);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] read(%d, *, %d) = %d", fd, xnbytes, ret);
 	} else {
@@ -720,7 +728,7 @@ read(int fd, void *buf, size_t nbytes)
 	}
 
 	update(fd, ret, TRICKLE_RECV);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		ret = -1;
@@ -739,17 +747,18 @@ readv(int fd, const struct iovec *iov, int iovcnt)
 	size_t len = 0;
 	ssize_t ret = -1;
 	int i, eagain;
+	LOCK_VAR;
 
 	for (i = 0; i < iovcnt; i++)
 		len += iov[i].iov_len;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(fd, &len, TRICKLE_RECV) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_readv)(fd, iov, iovcnt);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] readv(%d, *, %d) = %d", fd, iovcnt, ret);
 	} else {
@@ -758,7 +767,7 @@ readv(int fd, const struct iovec *iov, int iovcnt)
 	}
 
 	update(fd, ret, TRICKLE_RECV);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -775,14 +784,15 @@ recv(int sock, void *buf, size_t len, int flags)
 	ssize_t ret = -1;
 	size_t xlen = len;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(sock, &xlen, TRICKLE_RECV) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_recv)(sock, buf, xlen, flags);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] recv(%d, *, %d, %d) = %d",
 		    sock, len, flags, ret);
@@ -792,7 +802,7 @@ recv(int sock, void *buf, size_t len, int flags)
 	}
 
 	update(sock, ret, TRICKLE_RECV);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -816,14 +826,15 @@ recvfrom(int sock, void *buf, size_t len, int flags, struct sockaddr *from,
 	ssize_t ret = -1;
 	size_t xlen = len;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(sock, &xlen, TRICKLE_RECV) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_recvfrom)(sock, buf, xlen, flags, from, fromlen);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] recvfrom(%d, *, %d, %d) = %d",
 		    sock, len, flags, ret);
@@ -834,7 +845,7 @@ recvfrom(int sock, void *buf, size_t len, int flags, struct sockaddr *from,
 	}
 
 	update(sock, ret, TRICKLE_RECV);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -850,14 +861,15 @@ write(int fd, const void *buf, size_t len)
 	ssize_t ret = -1;
 	size_t xlen = len;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(fd, &xlen, TRICKLE_SEND) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_write)(fd, buf, xlen);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] write(%d, *, %d) = %d", fd, len, ret);
 	} else {
@@ -866,7 +878,7 @@ write(int fd, const void *buf, size_t len)
 	}
 
 	update(fd, ret, TRICKLE_SEND);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -885,17 +897,18 @@ writev(int fd, const struct iovec *iov, int iovcnt)
 	ssize_t ret = -1;
 	size_t len = 0;
 	int i, eagain;
+	LOCK_VAR;
 
 	for (i = 0; i < iovcnt; i++)
 		len += iov[i].iov_len;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(fd, &len, TRICKLE_SEND) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_writev)(fd, iov, iovcnt);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] writev(%d, *, %d) = %d",
 		    fd, iovcnt, ret);
@@ -905,7 +918,7 @@ writev(int fd, const struct iovec *iov, int iovcnt)
 	}
 
 	update(fd, ret, TRICKLE_SEND);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -922,14 +935,15 @@ send(int sock, const void *buf, size_t len, int flags)
 	ssize_t ret = -1;
 	size_t xlen = len;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(sock, &xlen, TRICKLE_SEND) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_send)(sock, buf, xlen, flags);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] send(%d, *, %d, %d) = %d",
 		    sock, len, flags, ret);
@@ -940,7 +954,7 @@ send(int sock, const void *buf, size_t len, int flags)
 	}
 
 	update(sock, ret, TRICKLE_SEND);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -958,14 +972,15 @@ sendto(int sock, const void *buf, size_t len, int flags, const struct sockaddr *
 	ssize_t ret = -1;
 	size_t xlen = len;
 	int eagain;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	if (!(eagain = delay(sock, &xlen, TRICKLE_SEND) == TRICKLE_WOULDBLOCK)) {
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 		ret = (*libc_sendto)(sock, buf, xlen, flags, to, tolen);
-		trickle_lock();
+		TRICKLE_LOCK;
 #ifdef DEBUG
 		safe_printv(0, "[DEBUG] sendto(%d, *, %d) = %d", sock, len, ret);
 	} else {
@@ -974,7 +989,7 @@ sendto(int sock, const void *buf, size_t len, int flags, const struct sockaddr *
 	}
 
 	update(sock, ret, TRICKLE_SEND);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	if (eagain) {
 		errno = EAGAIN;
@@ -1001,10 +1016,11 @@ dup(int oldfd)
 {
 	int newfd;
 	struct sockdesc *sd, *nsd;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	newfd = (*libc_dup)(oldfd);
 
@@ -1012,14 +1028,14 @@ dup(int oldfd)
 	safe_printv(0, "[DEBUG] dup(%d) = %d", oldfd, newfd);
 #endif /* DEBUG */
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	TAILQ_FOREACH(sd, &sdhead, next)
 	        if (oldfd == sd->sock)
 			break;
 
 	if (sd != NULL && newfd != -1) {
 		if ((nsd = malloc(sizeof(*nsd))) == NULL) {
-			trickle_unlock();
+			TRICKLE_UNLOCK;
 			(*libc_close)(newfd);
 			return (-1);
 		}
@@ -1027,7 +1043,7 @@ dup(int oldfd)
 		memcpy(nsd, sd, sizeof(*nsd));
 		TAILQ_INSERT_TAIL(&sdhead, nsd, next);
 	}
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	return (newfd);
 }
@@ -1037,10 +1053,11 @@ dup2(int oldfd, int newfd)
 {
 	struct sockdesc *sd, *nsd;
 	int ret;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	ret = (*libc_dup2)(oldfd, newfd);
 
@@ -1048,21 +1065,21 @@ dup2(int oldfd, int newfd)
 	safe_printv(0, "[DEBUG] dup2(%d, %d) = %d", oldfd, newfd, ret);
 #endif /* DEBUG */
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	TAILQ_FOREACH(sd, &sdhead, next)
 		if (oldfd == sd->sock)
 			break;
 
 	if (sd != NULL && ret != -1) {
 		if ((nsd = malloc(sizeof(*nsd))) == NULL) {
-			trickle_unlock();
+			TRICKLE_UNLOCK;
 			return (-1);
 		}
 		sd->sock = newfd;
 		memcpy(nsd, sd, sizeof(*nsd));
 		TAILQ_INSERT_TAIL(&sdhead, nsd, next);
 	}
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	return (ret);
 }
@@ -1077,10 +1094,11 @@ accept(int sock, struct sockaddr *addr, socklen_t *addrlen)
 {
 	int ret;
 	struct sockdesc *sd;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	ret = (*libc_accept)(sock, addr, addrlen);
 
@@ -1091,9 +1109,9 @@ accept(int sock, struct sockaddr *addr, socklen_t *addrlen)
 	if (ret != -1) {
 		if ((sd = calloc(1, sizeof(*sd))) == NULL)
 			return (ret);
-		trickle_lock();
+		TRICKLE_LOCK;
 		if ((sd->stat = bwstat_new()) == NULL) {
-			trickle_unlock();
+			TRICKLE_UNLOCK;
 			free(sd);
 			return (ret);
 		}
@@ -1102,7 +1120,7 @@ accept(int sock, struct sockaddr *addr, socklen_t *addrlen)
 		sd->stat->lsmooth = lsmooth;
 		sd->stat->tsmooth = tsmooth;
 		TAILQ_INSERT_TAIL(&sdhead, sd, next);
-		trickle_unlock();
+		TRICKLE_UNLOCK;
 	}
 
 	return (ret);
@@ -1114,8 +1132,9 @@ sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 {
 	size_t inbytes = count, outbytes = count, bytes;
 	ssize_t ret = 0;
+	LOCK_VAR;
 
-	trickle_lock();
+	TRICKLE_LOCK;
 	INIT;
 
 	/* in_fd = recv, out_fd = send */
@@ -1123,7 +1142,7 @@ sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 	/* We should never get TRICKLE_WOULDBLOCK here */
 	delay(in_fd, &inbytes, TRICKLE_RECV);
 	delay(out_fd, &outbytes, TRICKLE_SEND);
-	trickle_unlock();
+	TRICKLE_UNLOCK;
 
 	/* This is a slightly ugly hack. */
 	bytes = MIN(inbytes, outbytes);

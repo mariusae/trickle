@@ -192,10 +192,9 @@ static pthread_mutex_t global_lock = PTHREAD_MUTEX_INITIALIZER;
  */
 static void trickle_lock(sigset_t *oset)
 {
-#ifdef NODLOPEN
 	sigset_t mask;
 	sigfillset(&mask);
-        void *dh = (void *) -1L;
+        void *dh;
 	/*
 	 * This hack is not nice but I haven't found a better solution.
 	 * You need to load dynamically pthread_sigmask() and you must synchronize
@@ -204,10 +203,12 @@ static void trickle_lock(sigset_t *oset)
 	 * they must wait until initialization is completed before continuing. Hence the
 	 * only place that I have found we could load pthread_sigmask() is here.
 	 */
-	if (!libc_pthread_sigmask)
+	if (!libc_pthread_sigmask) {
+		if ((dh = dlopen("libpthread.so.0", RTLD_LAZY)) == NULL)
+			errx(1, "[trickle] Failed to open libpthread");
 		GETADDR(pthread_sigmask);
+	}
 	(*libc_pthread_sigmask)(SIG_SETMASK,&mask,oset);
-#endif
 	pthread_mutex_lock(&global_lock);
 }
 

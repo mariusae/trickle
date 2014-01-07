@@ -91,7 +91,7 @@ main(int argc, char **argv)
 	trickled_ctl_open(&trickled_sock);
 
 	if (!trickled_sock)
-		err(1, sockname);
+		err(1, "%s", sockname);
 
 	handle_command(i, argc, argv);
 

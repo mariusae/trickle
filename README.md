@@ -5,6 +5,8 @@ trickle
 
    http://monkey.org/~marius/trickle
 
+[![Build Status](https://travis-ci.org/mariusae/trickle.svg)](https://travis-ci.org/mariusae/trickle)
+
 Description
 -----------
 

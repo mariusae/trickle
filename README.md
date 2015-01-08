@@ -16,6 +16,7 @@ Description
 Install
 -------
 
+    autoreconf -if
     ./configure
     make
     su

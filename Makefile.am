@@ -43,3 +43,5 @@ EXTRA_DIST = LICENSE README strlcat.c strlcpy.c err.c Makefile.am.inc	\
 	     trickled.conf.5 trickle-overload.c trickledu.c cleanup.h	\
 	     conf.h message.h trickle.h util.h bwstat.h client.h	\
 	     print.h trickledu.h xdr.h
+
+ACLOCAL_AMFLAGS = -I m4

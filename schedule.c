@@ -1,16 +1,32 @@
 /*
- * trickle-overload.c
+ * schedule.c
  *
- * Copyright (c) 2002, 2003 Marius Aamodt Eriksen <marius@monkey.org>
+ * Copyright (c) 2009-2015 Matthew Blythe <mblythester@gmail.com>
  * All rights reserved.
  *
- * $Id: trickle-overload.c,v 1.38 2004/02/13 06:11:21 marius Exp $
  */
+
+#include <sys/types.h>
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif /* HAVE_SYS_TIME_H */
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif /* HAVE_STDINT_H */
+#if defined(HAVE_TIME_H) && defined(TIME_WITH_SYS_TIME)
+#include <time.h>
+#endif /* defined(HAVE_TIME_H) && defined(TIME_WITH_SYS_TIME) */
+#include <stdlib.h>
 
 #include "trickle.h"
 #include "schedule.h"
 
-static void
+void
 schedString(char* sched, uint* bwList, const char* updown, print_func print)
 {
 	int i,j;
@@ -100,7 +116,7 @@ schedString(char* sched, uint* bwList, const char* updown, print_func print)
 	}
 }
 
-static uint
+uint
 getSchedIndex()
 {
 	time_t rawtime;

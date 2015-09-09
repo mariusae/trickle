@@ -10,9 +10,9 @@
 #ifndef SCHEDULE_H
 #define SCHEDULE_H
 
-static  uint   getSchedIndex ();
+uint   getSchedIndex ();
 typedef void (*print_func)   (int, const char *, ...);
-static  void   schedString   (char* sched,
+void   schedString   (char* sched,
                               uint* bwList,
                               const char* updown,
                               print_func print);

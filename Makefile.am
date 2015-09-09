@@ -1,7 +1,7 @@
 include $(top_srcdir)/Makefile.am.inc
 
 TRICKLEOVERLOADFILES = @LTLIBOBJS@ trickle-overload.lo bwstat.lo trickledu.lo \
-                       atomicio.lo xdr.lo
+                       atomicio.lo xdr.lo schedule.lo
 trickle-overload.so: $(TRICKLEOVERLOADFILES)
 	$(LIBTOOL) --mode=link $(CC) $(CFLAGS) -o libtmp$@.la                \
 		-rpath $(libdir)/trickle $(TRICKLEOVERLOADFILES) $(LIBS)     \

@@ -68,6 +68,8 @@ void        notifycb(int, short, void *);
 void        usage(void);
 void        gensigcb(int, short, void *);
 void        forcecb(int, short, void *);
+uint        getSchedIndex();
+void        schedString(char* sched, uint* bwList, const char* updown);
 
 #define CONF_SAVE(w, f) do {            	\
 	char *p = f;				\
@@ -84,7 +86,8 @@ char *__progname;
 struct event listenev;
 int winsz = 1024 * 200;
 double tsmooth = 5;
-uint lsmooth = 10, pri = 1, globlim[2] = { 10 * 1024, 10 * 1024 };
+uint lsmooth = 10, pri = 1;
+uint globlim[2][7*24*DIVS_PER_HOUR];//7 days in week * 24 hours in day * divs in hour
 char *conf_path = SYSCONFDIR "/trickled.conf";
 struct event sighupev, sigtermev, sigintev, notifyev, forceev;
 cleanup_t *cleanup;
@@ -96,6 +99,8 @@ main(int argc, char **argv)
 	int opt, verbose = 0, fg = 0, usesyslog = 0;
 	struct stat sb;
 	static char sockname[MAXPATHLEN];
+	uint str_len;
+        char *sendlim=NULL, *recvlim=NULL;
 
 	__progname = get_progname(argv[0]);
 
@@ -119,10 +124,20 @@ main(int argc, char **argv)
 			verbose++;
 			break;
 		case 'u':
-			globlim[TRICKLE_SEND] = 1024 * atoi(optarg);
+			str_len = strlen(optarg);
+			if(sendlim){
+				free(sendlim);
+			}
+			sendlim = (char*) malloc(str_len+1);
+			strcpy(sendlim,optarg);
 			break;
 		case 'd':
-			globlim[TRICKLE_RECV] = 1024 * atoi(optarg);
+			str_len = strlen(optarg);
+			if(recvlim){
+				free(recvlim);
+			}
+			recvlim = (char*) malloc(str_len+1);
+			strcpy(recvlim,optarg);
 			break;
 		case 'f':
 			fg = 1;
@@ -168,6 +183,21 @@ main(int argc, char **argv)
 	conf_init();
 	print_setup(verbose, usesyslog);
 
+	if(!sendlim){
+		schedString("10\0",globlim[TRICKLE_SEND],"upload");
+	}
+	else{
+		schedString(sendlim,globlim[TRICKLE_SEND],"upload");
+		free(sendlim);
+	}
+	if(!recvlim){
+		schedString("10\0",globlim[TRICKLE_RECV],"download");
+	}
+	else{
+		schedString(recvlim,globlim[TRICKLE_RECV],"download");
+		free(recvlim);
+	}
+
 	if (!fg && daemon(1, 0) == -1)
 		errv(0, 1, "daemon()");
 
@@ -206,6 +236,113 @@ main(int argc, char **argv)
 
 	/* NOTREACHED */
 	return (1);
+}
+
+
+void
+schedString(char* sched, uint* bwList, const char* updown)
+{
+	int i,j;
+	int day[8];
+	char* place=NULL;
+	uint defaultBw = atoi(sched)*1024;
+	warnxv(1,"Default %s Bandwidth: %u bps",updown,defaultBw);
+	for(i=0; i<(7*24*DIVS_PER_HOUR); i++){
+		bwList[i] = defaultBw;
+	}
+	while(1){
+		for(i=0;i<7;i++)
+			day[i]=0;
+		day[7]=1;
+		while(sched[0]!='\0' && sched[0]!=':')
+			sched++;
+		if(sched[0]=='\0')
+			return;
+		sched++;
+		while(place != sched){
+			place = sched;
+			if(sched[0]=='S' && sched[1]=='u'){
+				day[0]=1;
+				day[7]=0;
+				sched += 2;
+			}
+			if(sched[0]=='M'){
+				day[1]=1;
+				day[7]=0;
+				sched++;
+			}
+			if(sched[0]=='T'){
+				day[2]=1;
+				day[7]=0;
+				sched++;
+			}
+			if(sched[0]=='W'){
+				day[3]=1;
+				day[7]=0;
+				sched++;
+			}
+			if(sched[0]=='T' && sched[1]=='h'){
+				day[4]=1;
+				day[7]=0;
+				sched += 2;
+			}
+			if(sched[0]=='F'){
+				day[5]=1;
+				day[7]=0;
+				sched++;
+			}
+			if(sched[0]=='S' && sched[1]=='a'){
+				day[6]=1;
+				day[7]=0;
+				sched += 2;
+			}
+		}
+		uint time1,hr1,div1,time2,hr2,div2,bw;
+		time1 = atoi(sched);
+		hr1 = (time1/100)%24;
+		div1 = ((time1%100)/(60/DIVS_PER_HOUR))%DIVS_PER_HOUR;
+		while(sched[0]!='\0' && sched[0]!=',')
+			sched++;
+		if(sched[0]=='\0')
+			return;
+		sched++;
+		time2 = atoi(sched);
+		hr2 = (time2/100)%24;
+		div2 = ((time2%100)/(60/DIVS_PER_HOUR))%DIVS_PER_HOUR;
+		while(sched[0]!='\0' && sched[0]!=',')
+			sched++;
+		if(sched[0]=='\0')
+			return;
+		sched++;
+		bw = atoi(sched);
+		bw *= 1024;
+		for(i=0; i<7; i++){
+			if(day[i]||day[7]){
+				 warnxv(1,"changing %s bandwidth on day %u, between %u:%02u and %u:%02u to %u bps",
+						 updown, i, hr1, div1*(60/DIVS_PER_HOUR), hr2, div2*(60/DIVS_PER_HOUR), bw);
+				 for(j = i*(24*DIVS_PER_HOUR) + hr1*DIVS_PER_HOUR + div1;
+						 j < i*(24*DIVS_PER_HOUR) + hr2*DIVS_PER_HOUR + div2; j++){
+					 bwList[j] = bw;
+				 }
+			}
+		}
+	}
+}
+
+uint
+getSchedIndex()
+{
+	time_t rawtime;
+	struct tm * timeinfo;
+	uint index;
+
+	time ( &rawtime );
+	timeinfo = localtime ( &rawtime );
+	index = (timeinfo->tm_wday*24*DIVS_PER_HOUR)
+		+ (timeinfo->tm_hour*DIVS_PER_HOUR)
+		+ (timeinfo->tm_min/(60/DIVS_PER_HOUR));
+
+	return index;
 }
 
 void
@@ -364,18 +501,18 @@ msgcb(int fd, short which, void *arg)
 	}
 	case MSG_TYPE_DELAY: {
 		struct msg_delay *delay = &msg.data.delay;
- 		client_delay(cli, delay->dir, delay->len, globlim[delay->dir]);
+ 		client_delay(cli, delay->dir, delay->len, globlim[delay->dir][getSchedIndex()]);
 		break;
 	}
 	case MSG_TYPE_GETDELAY: {
 		struct msg_delay *delay = &msg.data.delay;
 		client_getdelay(cli, delay->dir, delay->len,
-		    globlim[delay->dir]);
+		    globlim[delay->dir][getSchedIndex()]);
 		break;
 	}
 	case MSG_TYPE_GETINFO: {
-		client_getinfo(cli, globlim[TRICKLE_SEND],
-		    globlim[TRICKLE_RECV]);
+		client_getinfo(cli, globlim[TRICKLE_SEND][getSchedIndex()],
+		    globlim[TRICKLE_RECV][getSchedIndex()]);
 		break;
 	}
 	default:

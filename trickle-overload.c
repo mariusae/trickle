@@ -325,7 +325,7 @@ socket(int domain, int type, int protocol)
 	    domain, type, protocol, sock);
 #endif /* DEBUG */
 
-	if (sock != -1 && domain == AF_INET && type == SOCK_STREAM) {
+	if (sock != -1 && domain == AF_INET && type & SOCK_STREAM) {
 		if ((sd = calloc(1, sizeof(*sd))) == NULL)
 			return (-1);
 		trickle_lock();

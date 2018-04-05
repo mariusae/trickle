@@ -325,6 +325,13 @@ socket(int domain, int type, int protocol)
 	    domain, type, protocol, sock);
 #endif /* DEBUG */
 
+#ifdef SOCK_NONBLOCK
+	type &= ~SOCK_NONBLOCK;
+#endif
+#ifdef SOCK_CLOEXEC
+	type &= ~SOCK_CLOEXEC;
+#endif
+
 	if (sock != -1 && domain == AF_INET && type == SOCK_STREAM) {
 		if ((sd = calloc(1, sizeof(*sd))) == NULL)
 			return (-1);

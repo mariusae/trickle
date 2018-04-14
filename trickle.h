@@ -17,4 +17,7 @@
 
 #define TRICKLE_WOULDBLOCK 1
 
+//each division is 5 minutes
+#define DIVS_PER_HOUR 12
+
 #endif /* !TRICKLE_H */

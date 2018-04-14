@@ -56,6 +56,7 @@
 #include "message.h"
 #include "util.h"
 #include "trickledu.h"
+#include "schedule.h"
 
 #ifndef INFTIM
 #define INFTIM -1
@@ -101,7 +102,7 @@ TAILQ_HEAD(_pollfdhead, _pollfd);
 static TAILQ_HEAD(sockdeschead, sockdesc) sdhead;
 static uint32_t winsz;
 static int verbose;
-static uint lim[2];
+static uint lim[2][7*24*DIVS_PER_HOUR];//7 days in week * 24 hours in day * divs in hour
 static char *argv0;
 static double tsmooth;
 static uint lsmooth/* , latency */;
@@ -283,11 +284,11 @@ trickle_init(void)
 */
 
 	winsz = atoi(winszstr) * 1024;
-	lim[TRICKLE_RECV] = atoi(recvlimstr) * 1024;
-	lim[TRICKLE_SEND] = atoi(sendlimstr) * 1024;
 /* 	latency = atoi(latencystr);*/
 	verbose = atoi(verbosestr);
 //	verbose = -1;
+        schedString(recvlimstr,lim[TRICKLE_RECV],"download",safe_printv);
+        schedString(sendlimstr,lim[TRICKLE_SEND],"upload",safe_printv);
 	if ((tsmooth = strtod(tsmoothstr, (char **)NULL)) <= 0.0)
 		errx(1, "[trickle] Invalid time smoothing parameter");
 	lsmooth = atoi(lsmoothstr) * 1024;
@@ -1152,7 +1153,8 @@ static struct timeval *
 getdelay(struct sockdesc *sd, ssize_t *len, short which)
 {
 	struct timeval *xtv;
-	uint xlim = lim[which];
+
+	uint xlim = lim[which][getSchedIndex()];
 
 	/* XXX check this. */
 	if (*len < 0)

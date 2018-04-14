@@ -1,7 +1,7 @@
 include $(top_srcdir)/Makefile.am.inc
 
 TRICKLEOVERLOADFILES = @LTLIBOBJS@ trickle-overload.lo bwstat.lo trickledu.lo \
-                       atomicio.lo xdr.lo
+                       atomicio.lo xdr.lo schedule.lo
 trickle-overload.so: $(TRICKLEOVERLOADFILES)
 	$(LIBTOOL) --mode=link $(CC) $(CFLAGS) -o libtmp$@.la                \
 		-rpath $(libdir)/trickle $(TRICKLEOVERLOADFILES) $(LIBS)     \
@@ -22,7 +22,7 @@ trickle_SOURCES = trickle.c util.c getopt.c
 trickle_LDADD = @ERRO@ $(LIBOBJS)
 
 trickled_SOURCES = trickled.c atomicio.c print.c bwstat.c client.c conf.c \
-                   util.c cleanup.c getopt.c xdr.c
+                   util.c cleanup.c getopt.c xdr.c schedule.c
 trickled_LDADD = @EVENTLIB@ $(LIBOBJS)
 
 tricklectl_SOURCES = tricklectl.c trickledu.c atomicio.c xdr.c
@@ -33,7 +33,7 @@ AM_CFLAGS = -Wall -Icompat @EVENTINC@
 overloaddir = $(libdir)
 overload_DATA = libtrickle.so
 
-libtrickle.so: trickle-overload.c atomicio.c
+libtrickle.so: trickle-overload.c atomicio.c schedule.c
 $(overload_DATA):
 
 CLEANFILES = *.so
@@ -42,6 +42,6 @@ EXTRA_DIST = LICENSE README strlcat.c strlcpy.c err.c Makefile.am.inc	\
              compat/sys/queue.h compat/sys/tree.h trickle.1 trickled.8	\
 	     trickled.conf.5 trickle-overload.c trickledu.c cleanup.h	\
 	     conf.h message.h trickle.h util.h bwstat.h client.h	\
-	     print.h trickledu.h xdr.h
+	     print.h trickledu.h xdr.h schedule.h
 
 ACLOCAL_AMFLAGS = -I m4

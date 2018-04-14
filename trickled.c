@@ -59,6 +59,7 @@
 #include "client.h"
 #include "conf.h"
 #include "cleanup.h"
+#include "schedule.h"
 
 void        trickled_setup(char *);
 void        newclientcb(int, short, void *);
@@ -84,7 +85,8 @@ char *__progname;
 struct event listenev;
 int winsz = 1024 * 200;
 double tsmooth = 5;
-uint lsmooth = 10, pri = 1, globlim[2] = { 10 * 1024, 10 * 1024 };
+uint lsmooth = 10, pri = 1;
+uint globlim[2][7*24*DIVS_PER_HOUR];//7 days in week * 24 hours in day * divs in hour
 char *conf_path = SYSCONFDIR "/trickled.conf";
 struct event sighupev, sigtermev, sigintev, notifyev, forceev;
 cleanup_t *cleanup;
@@ -96,6 +98,8 @@ main(int argc, char **argv)
 	int opt, verbose = 0, fg = 0, usesyslog = 0;
 	struct stat sb;
 	static char sockname[MAXPATHLEN];
+	uint str_len;
+        char *sendlim=NULL, *recvlim=NULL;
 
 	__progname = get_progname(argv[0]);
 
@@ -119,10 +123,20 @@ main(int argc, char **argv)
 			verbose++;
 			break;
 		case 'u':
-			globlim[TRICKLE_SEND] = 1024 * atoi(optarg);
+			str_len = strlen(optarg);
+			if(sendlim){
+				free(sendlim);
+			}
+			sendlim = (char*) malloc(str_len+1);
+			strcpy(sendlim,optarg);
 			break;
 		case 'd':
-			globlim[TRICKLE_RECV] = 1024 * atoi(optarg);
+			str_len = strlen(optarg);
+			if(recvlim){
+				free(recvlim);
+			}
+			recvlim = (char*) malloc(str_len+1);
+			strcpy(recvlim,optarg);
 			break;
 		case 'f':
 			fg = 1;
@@ -167,6 +181,21 @@ main(int argc, char **argv)
 
 	conf_init();
 	print_setup(verbose, usesyslog);
+
+	if(!sendlim){
+		schedString("10\0",globlim[TRICKLE_SEND],"upload",warnxv);
+	}
+	else{
+		schedString(sendlim,globlim[TRICKLE_SEND],"upload",warnxv);
+		free(sendlim);
+	}
+	if(!recvlim){
+		schedString("10\0",globlim[TRICKLE_RECV],"download",warnxv);
+	}
+	else{
+		schedString(recvlim,globlim[TRICKLE_RECV],"download",warnxv);
+		free(recvlim);
+	}
 
 	if (!fg && daemon(1, 0) == -1)
 		errv(0, 1, "daemon()");
@@ -364,18 +393,18 @@ msgcb(int fd, short which, void *arg)
 	}
 	case MSG_TYPE_DELAY: {
 		struct msg_delay *delay = &msg.data.delay;
- 		client_delay(cli, delay->dir, delay->len, globlim[delay->dir]);
+ 		client_delay(cli, delay->dir, delay->len, globlim[delay->dir][getSchedIndex()]);
 		break;
 	}
 	case MSG_TYPE_GETDELAY: {
 		struct msg_delay *delay = &msg.data.delay;
 		client_getdelay(cli, delay->dir, delay->len,
-		    globlim[delay->dir]);
+		    globlim[delay->dir][getSchedIndex()]);
 		break;
 	}
 	case MSG_TYPE_GETINFO: {
-		client_getinfo(cli, globlim[TRICKLE_SEND],
-		    globlim[TRICKLE_RECV]);
+		client_getinfo(cli, globlim[TRICKLE_SEND][getSchedIndex()],
+		    globlim[TRICKLE_RECV][getSchedIndex()]);
 		break;
 	}
 	default:

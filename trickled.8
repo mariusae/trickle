@@ -15,8 +15,8 @@
 .Op Fl V
 .Op Fl f
 .Op Fl s
-.Op Fl d Ar rate
-.Op Fl u Ar rate
+.Op Fl d Ar rate\fR[:\fIschedule\fR]
+.Op Fl u Ar rate\fR[:\fIschedule\fR]
 .Op Fl t Ar seconds
 .Op Fl l Ar length
 .Op Fl p Ar priority
@@ -44,14 +44,18 @@ Runs
 in the foreground.
 .It Fl s
 Uses syslog for all output (instead of stderr).
-.It Fl d Ar rate
+.It Fl d Ar rate\fR[:\fIschedule\fR]
 Limit the download bandwidth consumption to 
 .Ar rate
-KB/s.
-.It Fl u Ar rate
+KB/s. Optionally, set a
+.Ar schedule
+to follow.
+.It Fl u Ar rate\fR[:\fIschedule\fR]
 Limit the upload bandwidth consumption to 
 .Ar rate
-KB/s.
+KB/s. Optionally, set a
+.Ar schedule
+to follow.
 .It Fl t Ar seconds
 Set smoothing time to
 .Ar seconds 
@@ -101,12 +105,75 @@ KB.  This determines how aggressive
 is at eliminating bandwidth consumption peaks.  Lower values will be
 more aggressive, but may also result in over shaping.  The default
 value (512 KB) is usually sufficient.
+.El
+.Ss "Schedules"
+Both the
+.Ar -u
+and
+.Ar -d
+flags accept one or more optional schedules, specified in the following form:
+.Pp
+:[\fIdays_of_week\fR][\fIstart_time\fR],[\fIend_time\fR],[\fIrate\fR]
+.Pp
+.Ar days_of_week
+may be any of
+.Ar Su M T W Th F Sa
+in any order.  If no day is specified, the schedule will apply for all days.
+.Pp
+.Ar start_time
+is the 3-or-4-digit 24-hour local time to begin the new bandwidth schedule.
+For example,
+.Ar 1234
+would mean 12:34 PM.
+.Ar 123
+would mean 1:23 AM.
+.Ar 2345
+would mean 11:45 PM.
+.Pp
+.Ar end_time
+is the 3-or-4-digit 24-hour local time to end the bandwidth schedule.
+.Pp
+.Ar rate
+is the bandwidth limit (in KB/s) that is enforced during the specified time.
+.Pp
+Multiple schedules can be string together on the command line.
+If the schedules overlap, the last one takes precident.
 .Sh EXAMPLES
 .Cm trickled -u 10 -d 20
 .Pp
 Limit aggregate 
 .Xr trickle 1
 upload bandwidth consumption to 10 KB/s and download consumption to 20 KB/s.
+.Pp
+.Cm trickled -d 50 -u 10:WSaSu130,145,1000:MTTh1200,300,96
+.Pp
+Limit aggregate
+.Xr trickle 1
+bandwidth consumption as follows:
+.Bl -bullet
+.It
+constant 50 KB/s download limit
+.It
+1000 KB/s upload limit between 1:30 AM and 1:45 AM on Wednesdays, Saturdays, and Sundays
+.It
+96 KB/s upload limit between 12:00 noon and 3:00 PM on Mondays, Tuesdays, and Thursdays
+.It
+10 KB/s upload limit otherwise
+.El
+.Pp
+.Cm trickled -s -u 100 -d 10000:900,1700,10
+.Pp
+Limit aggregate
+.Xr trickle 1
+bandwidth consumption as follows:
+.Bl -bullet
+.It
+constant 100 KB/s upload limit
+.It
+10 KB/s download limit between 9:00 AM and 5:00 PM all days of the week
+.It
+10,000 KB/s download limit otherwise
+.El
 .\" This next request is for sections 2 and 3 function return values only.
 .\" .Sh RETURN VALUES
 .\" The next request is for sections 2 and 3 error and signal handling only.

@@ -52,11 +52,11 @@ Runs trickle in standalone mode, independent of
 .It Fl d Ar rate
 Limit the download bandwidth consumption to 
 .Ar rate
-KB/s.
+KB/s. The default value is 10 KB/s.
 .It Fl u Ar rate
 Limit the upload bandwidth consumption to 
 .Ar rate
-KB/s.
+KB/s. The default value is 10 KB/s.
 .It Fl w Ar length
 Set peak detection window size to 
 .Ar length
@@ -75,6 +75,7 @@ result in a more continuous (smooth) session, while larger values may
 produce bursts in the sending and receiving data.  Smaller values (0.1
 - 1 s) are ideal for interactive applications while slightly larger
 values (1 - 10 s) are better for applications that need bulk transfer.
+The default value is 3 seconds.
 .It Fl l Ar length
 Set smoothing length to
 .Ar length 

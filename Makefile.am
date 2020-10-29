@@ -28,7 +28,7 @@ trickled_LDADD = @EVENTLIB@ $(LIBOBJS)
 tricklectl_SOURCES = tricklectl.c trickledu.c atomicio.c xdr.c
 tricklectl_LDADD = @ERRO@ $(LIBOBJS)
 
-AM_CFLAGS = -Wall -Icompat @EVENTINC@
+AM_CFLAGS = -Wall -Icompat -I/usr/include/tirpc -ltirpc @EVENTINC@
 
 overloaddir = $(libdir)
 overload_DATA = libtrickle.so

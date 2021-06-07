@@ -228,7 +228,7 @@ else
     csysconfdir="$sysconfdir"
 fi
 
-clibdir="$prefix/lib/trickle"
+clibdir="$libdir/trickle"
 
 AC_DEFINE_UNQUOTED(SYSCONFDIR, "$csysconfdir")
 AC_DEFINE_UNQUOTED(LIBDIR, "$clibdir")

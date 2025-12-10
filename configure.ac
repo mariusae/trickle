@@ -1,9 +1,8 @@
 dnl $Id: configure.in,v 1.22 2004/02/13 06:14:01 marius Exp $
-AC_INIT([trickle], [1.07])
+AC_INIT([trickle],[1.07])
 AC_CONFIG_SRCDIR([trickle.c])
 
-AC_CANONICAL_SYSTEM
-dnl AC_LIBTOOL_DLOPEN
+AC_CANONICAL_TARGET
 
 AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
@@ -12,7 +11,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_CC
 
-AM_PROG_LIBTOOL
+LT_INIT([dlopen])
 AC_PROG_MAKE_SET
 
 dnl intitialization
@@ -43,15 +42,13 @@ dnl ugly ugly hack
 AC_CHECK_LIB(c, err, [ ERRO="" ], [ ERRO="err.o" ],)
 AC_SUBST(ERRO)
 
-dnl Checks for header files.
-AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 
 dnl Checks for pthread
 threadsafe="yes"
 
 AC_ARG_ENABLE([threadsafe],
-	[AC_HELP_STRING([--disable-threadsafe],[disable trickle thread safety (default enabled)])],
+	[AS_HELP_STRING([--disable-threadsafe],[disable trickle thread safety (default enabled)])],
 	[threadsafe=$enableval]
 	)
 
@@ -62,11 +59,8 @@ fi
 
 dnl Check for __progname; from OpenSSHp
 AC_CACHE_CHECK([if libc defines __progname], ac_cv_libc_defines___progname, [   
-        AC_TRY_LINK([],
-                [ extern char *__progname; printf("%s", __progname); ],
-                [ ac_cv_libc_defines___progname="yes" ],
-                [ ac_cv_libc_defines___progname="no" ]
-        )
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[ extern char *__progname; printf("%s", __progname); ]])],[ ac_cv_libc_defines___progname="yes" ],[ ac_cv_libc_defines___progname="no" 
+        ])
 ])
 if test "x$ac_cv_libc_defines___progname" = "xyes" ; then
    AC_DEFINE(HAVE___PROGNAME)
@@ -78,7 +72,20 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
+m4_warn([obsolete],
+[Update your code to rely only on HAVE_SYS_TIME_H,
+then remove this warning and the obsolete code below it.
+All current systems provide time.h; it need not be checked for.
+Not all systems provide sys/time.h, but those that do, all allow
+you to include it and time.h simultaneously.])dnl
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+# Obsolete code to be removed.
+if test $ac_cv_header_sys_time_h = yes; then
+  AC_DEFINE([TIME_WITH_SYS_TIME],[1],[Define to 1 if you can safely include both <sys/time.h>
+	     and <time.h>.  This macro is obsolete.])
+fi
+# End of obsolete code.
+
 AC_CHECK_TYPE(u_int64_t, unsigned long long)
 AC_CHECK_TYPE(u_int32_t, unsigned int)
 AC_CHECK_TYPE(u_int16_t, unsigned short)
@@ -87,7 +94,19 @@ AC_CHECK_TYPE(in_addr_t, [], [AC_DEFINE([in_addr_t],[unsigned long],[])], [#incl
 
 dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
-AC_TYPE_SIGNAL
+m4_warn([obsolete],
+[your code may safely assume C89 semantics that RETSIGTYPE is void.
+Remove this warning and the `AC_CACHE_CHECK' when you adjust the code.])dnl
+AC_CACHE_CHECK([return type of signal handlers],[ac_cv_type_signal],[AC_COMPILE_IFELSE(
+[AC_LANG_PROGRAM([#include <sys/types.h>
+#include <signal.h>
+],
+		 [return *(signal (0, 0)) (0) == 1;])],
+		   [ac_cv_type_signal=int],
+		   [ac_cv_type_signal=void])])
+AC_DEFINE_UNQUOTED([RETSIGTYPE],[$ac_cv_type_signal],[Define as the return type of signal handlers
+		    (`int' or `void').])
+
 AC_CHECK_FUNCS(socket)
 AC_REPLACE_FUNCS(strlcat strlcpy daemon setenv strsep)
 
@@ -115,7 +134,7 @@ AC_ARG_WITH(libevent,
         EVENTINC="-I$withval"
         EVENTLIB="-L$withval -levent"
      else
-        AC_ERROR(event.h or libevent.a not found in $withval)
+        AC_MSG_ERROR(event.h or libevent.a not found in $withval)
      fi
      ;;
   esac ],
@@ -127,7 +146,7 @@ then
      EVENTLIB="-levent"
   else
      AC_MSG_RESULT(no)
-     AC_ERROR(libevent not found)
+     AC_MSG_ERROR(libevent not found)
   fi
   AC_MSG_RESULT(yes) ]
 )
@@ -136,8 +155,7 @@ AC_SUBST(EVENTLIB)
 
 dnl check if underscores are needed
 AC_MSG_CHECKING(if underscores are needed for symbols)
-AC_TRY_RUN(
-#include <dlfcn.h>
+AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <dlfcn.h>
 #include <stdio.h>
 
 int underscoreprobe(void) { return (31415); }
@@ -154,14 +172,13 @@ main(int argc, char **argv)
 		exit(0);
 
 	exit(1);	
-}, [AC_MSG_RESULT(yes)
-   AC_DEFINE(DL_NEED_UNDERSCORE)], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+}]])],[AC_MSG_RESULT(yes)
+   AC_DEFINE(DL_NEED_UNDERSCORE)],[AC_MSG_RESULT(no)],[AC_MSG_RESULT(no)])
 
 HAVEMETHOD=no
 
 AC_MSG_CHECKING(if we can access libc without dlopen)
-AC_TRY_RUN(
-#include <dlfcn.h>
+AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <dlfcn.h>
 #include <stdio.h>
 
 int
@@ -175,9 +192,9 @@ main(int argc, char **argv)
 		exit(0);
 
 	exit(1);
-}, [AC_MSG_RESULT(yes)
+}]])],[AC_MSG_RESULT(yes)
     AC_DEFINE(NODLOPEN)
-    HAVEMETHOD=yes], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+    HAVEMETHOD=yes],[AC_MSG_RESULT(no)],[AC_MSG_RESULT(no)])
 
 if test "$HAVEMETHOD" = "no"; then
     dnl ugly, ugly hack		     
@@ -195,8 +212,7 @@ if test "$HAVEMETHOD" = "no"; then
     for TESTLIB in libc.so `echo $USRLIBCGUESS` `echo $LIBCGUESS`
     do
         AC_MSG_CHECKING(if we can access libc with $TESTLIB)
-        AC_TRY_RUN(
-        #include <dlfcn.h>
+        AC_RUN_IFELSE([AC_LANG_SOURCE([[#include <dlfcn.h>
         #include <stdio.h>
     
         int
@@ -208,9 +224,9 @@ if test "$HAVEMETHOD" = "no"; then
     	           exit(0);
     
             exit(1);
-        }, [AC_MSG_RESULT(yes)
+        }]])],[AC_MSG_RESULT(yes)
             AC_DEFINE_UNQUOTED(DLOPENLIBC, "$TESTLIB")
-	    HAVEMETHOD=yes], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
+	    HAVEMETHOD=yes],[AC_MSG_RESULT(no)],[AC_MSG_RESULT(no)])
 
 	if test "$HAVEMETHOD" = "yes"; then
 	   break
@@ -239,5 +255,11 @@ if test "$havesendfile" = "yes"; then
    AC_DEFINE(HAVE_SENDFILE, 1, [Define if your system has the sendfile system call])
 fi
 
-AC_OUTPUT(Makefile)
+RPCINC="-I${prefix}/include/tirpc"
+RPCLIB="-L${prefix}/lib -ltirpc -lc"
+AC_SUBST(RPCINC)
+AC_SUBST(RPCLIB)
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 

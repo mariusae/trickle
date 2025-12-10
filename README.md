@@ -13,6 +13,18 @@ Description
    trickle is a voluntary, cooperative bandwidth shaper.  trickle works
    entirely in userland and is cross platform compatible.
 
+Pre-Install
+-----------
+
+Ubuntu:
+
+```bash
+sudo apt install autoconf automake libtool
+sudo apt install libevent-dev
+sudo apt install libtirpc-dev
+
+```
+
 Install
 -------
 

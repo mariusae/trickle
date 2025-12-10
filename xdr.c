@@ -7,7 +7,7 @@
  * $Id: xdr.c,v 1.3 2003/06/01 18:39:12 marius Exp $
  */
 
-#include <rpc/rpc.h>
+#include <rpc/xdr.h>
 
 #include "message.h"
 

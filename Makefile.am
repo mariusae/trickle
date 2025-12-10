@@ -19,16 +19,16 @@ bin_PROGRAMS = trickle trickled tricklectl
 
 trickle_DEPENDENCIES = @ERRO@ $(LIBOBJS)
 trickle_SOURCES = trickle.c util.c getopt.c
-trickle_LDADD = @ERRO@ $(LIBOBJS)
+trickle_LDADD = @ERRO@ @RPCLIB@ $(LIBOBJS)
 
 trickled_SOURCES = trickled.c atomicio.c print.c bwstat.c client.c conf.c \
                    util.c cleanup.c getopt.c xdr.c
-trickled_LDADD = @EVENTLIB@ $(LIBOBJS)
+trickled_LDADD = @EVENTLIB@ @RPCLIB@ $(LIBOBJS)
 
 tricklectl_SOURCES = tricklectl.c trickledu.c atomicio.c xdr.c
-tricklectl_LDADD = @ERRO@ $(LIBOBJS)
+tricklectl_LDADD = @ERRO@ @RPCLIB@ $(LIBOBJS)
 
-AM_CFLAGS = -Wall -Icompat @EVENTINC@
+AM_CFLAGS = -Wall -Icompat @EVENTINC@ @RPCINC@
 
 overloaddir = $(libdir)
 overload_DATA = libtrickle.so

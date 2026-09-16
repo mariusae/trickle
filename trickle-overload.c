@@ -218,7 +218,12 @@ trickle_init(void)
 
 	GETADDR(write);
 
+#ifdef __NetBSD__
+	if ((libc_socket = dlsym(dh, "__socket30")) == NULL)
+		errx(0, "[trickle] Failed to get __socket30() address");
+#else
 	GETADDR(socket);
+#endif
 /*	GETADDR(setsockopt); */
 	GETADDR(close);
 
@@ -235,7 +240,12 @@ trickle_init(void)
 #endif /* !__FreeBSD__ */
 	GETADDR(sendto);
 
+#ifdef __NetBSD__
+	if ((libc_select = dlsym(dh, "__select50")) == NULL)
+		errx(0, "[trickle] Failed to get __select50() address");
+#else
 	GETADDR(select);
+#endif
 //	GETADDR(poll);
 
 	GETADDR(dup);
@@ -558,7 +568,7 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 #define POLL_WRMASK (POLLOUT | POLLWRNORM | POLLWRBAND)
 #define POLL_RDMASK (POLLIN | /* POLLNORM | */  POLLPRI | POLLRDNORM | POLLRDBAND)
 
-#if defined(__linux__) || (defined(__svr4__) && defined(__sun__)) || defined(__OpenBSD__)
+#if defined(__linux__) || (defined(__svr4__) && defined(__sun__)) || defined(__OpenBSD__) || defined(__NetBSD__)
 int
 poll(struct pollfd *fds, nfds_t nfds, int __timeout)
 #elif defined(__FreeBSD__)

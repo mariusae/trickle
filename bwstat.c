@@ -150,7 +150,6 @@ bwstat_getdelay(struct bwstat *bs, size_t *len, uint lim, short which)
 	static struct timeval tv;
 	struct bwstathead poolq;
 	struct bwstat *xbs, *bstot = TAILQ_FIRST(&statq);
-	uint initent;
 	size_t xlen = *len;
 
 	if (*len == 0)
@@ -176,7 +175,7 @@ bwstat_getdelay(struct bwstat *bs, size_t *len, uint lim, short which)
 		return (NULL);
 
 	/* Entitlement per point */
-	initent = ent = lim / npts;
+	ent = lim / npts;
 
 	if (ent == 0)
 		;		/*

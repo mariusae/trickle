@@ -5,7 +5,7 @@ AC_CONFIG_SRCDIR([trickle.c])
 AC_CANONICAL_SYSTEM
 dnl AC_LIBTOOL_DLOPEN
 
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AM_CONFIG_HEADER(config.h)
 
 AC_CONFIG_MACRO_DIR([m4])
@@ -134,11 +134,48 @@ then
 AC_SUBST(EVENTINC)
 AC_SUBST(EVENTLIB)
 
+dnl Checks for Sun RPC / XDR support, used by trickled's control-socket
+dnl protocol (xdr.c). glibc >= 2.26 removed rpc/rpc.h entirely; libtirpc
+dnl is the standard externalized replacement on modern Linux.
+AC_MSG_CHECKING(for rpc/rpc.h)
+if test -f /usr/include/rpc/rpc.h; then
+   AC_MSG_RESULT(yes)
+   TIRPCINC=""
+   TIRPCLIB=""
+elif test -f /usr/include/tirpc/rpc/rpc.h; then
+   AC_MSG_RESULT(no, using libtirpc)
+   TIRPCINC="-I/usr/include/tirpc"
+   TIRPCLIB="-ltirpc"
+else
+   AC_MSG_RESULT(no)
+   AC_ERROR(rpc/rpc.h not found; install libtirpc (e.g. libtirpc-devel / libtirpc-dev))
+fi
+AC_SUBST(TIRPCINC)
+AC_SUBST(TIRPCLIB)
+
+dnl Checks for cmocka, used only by the test suite (`make check`). Optional:
+dnl the main build/install does not depend on it, so its absence only
+dnl disables tests rather than failing the whole configure run.
+AC_MSG_CHECKING(for cmocka)
+if pkg-config --exists cmocka 2>/dev/null; then
+   AC_MSG_RESULT(yes)
+   CMOCKAINC=`pkg-config --cflags cmocka`
+   CMOCKALIB=`pkg-config --libs cmocka`
+   HAVE_CMOCKA=yes
+else
+   AC_MSG_RESULT(no)
+   HAVE_CMOCKA=no
+fi
+AM_CONDITIONAL(HAVE_CMOCKA, test "x$HAVE_CMOCKA" = "xyes")
+AC_SUBST(CMOCKAINC)
+AC_SUBST(CMOCKALIB)
+
 dnl check if underscores are needed
 AC_MSG_CHECKING(if underscores are needed for symbols)
 AC_TRY_RUN(
 #include <dlfcn.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int underscoreprobe(void) { return (31415); }
 
@@ -163,6 +200,7 @@ AC_MSG_CHECKING(if we can access libc without dlopen)
 AC_TRY_RUN(
 #include <dlfcn.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int
 main(int argc, char **argv)
@@ -198,7 +236,8 @@ if test "$HAVEMETHOD" = "no"; then
         AC_TRY_RUN(
         #include <dlfcn.h>
         #include <stdio.h>
-    
+        #include <stdlib.h>
+
         int
         main(int argc, char **argv)
         {

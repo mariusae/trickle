@@ -3,7 +3,7 @@
 
 /*
  * Copyright (c) 1998, 1999, 2000 Niklas Hallqvist.  All rights reserved.
- * Copyright (c) 2000 Håkan Olsson.  All rights reserved.
+ * Copyright (c) 2000 Hï¿½kan Olsson.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -545,7 +545,7 @@ conf_decode_base64 (u_int8_t *out, u_int32_t *len, u_char *buf)
 			if (c2 & 0xF)
 				return (0);
 
-			if (!strcmp (buf, "=="))
+			if (!strcmp ((char *)buf, "=="))
 				buf++;
 			else
 				return (0);
@@ -561,7 +561,7 @@ conf_decode_base64 (u_int8_t *out, u_int32_t *len, u_char *buf)
 				if (c3 & 3)
 					return (0);
 
-				if (strcmp (buf, "="))
+				if (strcmp ((char *)buf, "="))
 					return (0);
 
 			}

@@ -41,7 +41,16 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-ssize_t    atomicio(ssize_t (*)(), int, void *, size_t);
+/*
+ * atomicio's f accepts either a read(2)- or write(2)-shaped function
+ * pointer; callers passing write (whose buffer is `const void *`) must
+ * cast to atomicio_f. A C89-style "ssize_t (*)()" unprototyped pointer
+ * used to paper over this, but C23 treats "()" as "(void)", making that
+ * a hard type error on modern compilers.
+ */
+typedef ssize_t (*atomicio_f)(int, void *, size_t);
+
+ssize_t    atomicio(atomicio_f, int, void *, size_t);
 char      *get_progname(char *);
 
 

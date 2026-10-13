@@ -166,7 +166,7 @@ DECLARE(dup2, int, (int, int));
 DECLARE(sendfile, ssize_t, (int, int, off_t *, size_t));
 #endif
 
-static int             delay(int, ssize_t *, short);
+static int             delay(int, size_t *, short);
 static struct timeval *getdelay(struct sockdesc *, ssize_t *, short);
 static void            update(int, ssize_t, short);
 static void            updatesd(struct sockdesc *, ssize_t, short);
@@ -1112,11 +1112,20 @@ sendfile(int out_fd, int in_fd, off_t *offset, size_t count)
 #endif	/* HAVE_SENDFILE */
 
 static int
-delay(int sock, ssize_t *len, short which)
+delay(int sock, size_t *len, short which)
 {
 	struct sockdesc *sd;
 	struct timeval *tv;
 	struct timespec ts, rm;
+	/*
+	 * Every real caller of delay() already has a concrete (non-negative)
+	 * byte count in hand, hence size_t here. getdelay()'s ssize_t is
+	 * only needed for select_delay()'s -1 ("don't know the length yet")
+	 * sentinel, which delay() itself never originates -- so bridge
+	 * through a signed temp rather than widening delay()'s own
+	 * contract to support a case it never uses.
+	 */
+	ssize_t slen;
 
 	TAILQ_FOREACH(sd, &sdhead, next)
 		if (sock == sd->sock)
@@ -1132,7 +1141,10 @@ delay(int sock, ssize_t *len, short which)
 		return (0);
 	}
 
-	if ((tv = getdelay(sd, len, which)) != NULL) {
+	slen = *len;
+	tv = getdelay(sd, &slen, which);
+	*len = slen;
+	if (tv != NULL) {
 		TIMEVAL_TO_TIMESPEC(tv, &ts);
 
 		safe_printv(2, "[trickle] Delaying %lds%ldus",
@@ -1153,18 +1165,33 @@ getdelay(struct sockdesc *sd, ssize_t *len, short which)
 {
 	struct timeval *xtv;
 	uint xlim = lim[which];
+	/*
+	 * len is ssize_t because -1 is a real sentinel this function
+	 * accepts ("caller doesn't know the length, use the last-known
+	 * one"). bwstat_getdelay()/trickled_getdelay() only ever deal in
+	 * genuine (non-negative) byte counts, so resolve the sentinel here
+	 * and hand them an actual size_t -- same values either way on this
+	 * platform (same width, and never negative past this point), just
+	 * without a signed/unsigned pointer-type mismatch.
+	 */
+	size_t ulen;
 
 	/* XXX check this. */
 	if (*len < 0)
 		*len = sd->data[which].lastlen;
+	ulen = *len;
 
-	if (trickled && (xtv = trickled_getdelay(which, len)) != NULL)
-		xlim = *len / (xtv->tv_sec + xtv->tv_usec / 1000000.0);
+	if (trickled && (xtv = trickled_getdelay(which, &ulen)) != NULL)
+		xlim = ulen / (xtv->tv_sec + xtv->tv_usec / 1000000.0);
 
-	if (xlim == 0)
+	if (xlim == 0) {
+		*len = ulen;
 		return (NULL);
+	}
 
-	return (bwstat_getdelay(sd->stat, len, xlim, which));
+	xtv = bwstat_getdelay(sd->stat, &ulen, xlim, which);
+	*len = ulen;
+	return (xtv);
 }
 
 static void

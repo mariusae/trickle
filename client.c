@@ -298,11 +298,11 @@ client_sendmsg(struct client *cli, struct msg *msg)
 		return (-1);
 
 	xbuflen = htonl(buflen);
-	if (atomicio(write, cli->s, &xbuflen, sizeof(xbuflen)) !=
+	if (atomicio((atomicio_f)write, cli->s, &xbuflen, sizeof(xbuflen)) !=
 	    sizeof(xbuflen))
 	    return (-1);
 
-	if (atomicio(write, cli->s, buf, buflen) == buflen)
+	if (atomicio((atomicio_f)write, cli->s, buf, buflen) == buflen)
 		return (0);
 
 	return (-1);

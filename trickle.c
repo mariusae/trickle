@@ -94,6 +94,14 @@ main(int argc, char **argv)
 			usage();
 		}
 
+	/*
+	 * -L is accepted but not yet wired up (its setenv() below is
+	 * deliberately commented out), so `latency` is parsed and then
+	 * genuinely unused. Not this cleanup's place to finish that
+	 * feature -- just silence the warning without changing behavior.
+	 */
+	(void)latency;
+
 	argc -= optind;
 	argv += optind;
 

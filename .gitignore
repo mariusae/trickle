@@ -23,6 +23,14 @@
 /mkinstalldirs
 /ltmain.sh
 /compile
+/test-driver
+test-suite.log
+*.log
+*.trs
+.dirstamp
+/tests/test_bwstat
+/tests/test_atomicio
+/tests/test_xdr
 /m4/libtool.m4
 /m4/ltoptions.m4
 /m4/ltsugar.m4

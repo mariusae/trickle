@@ -153,11 +153,12 @@ trickled_sendmsg(struct msg *msg)
 		return (-1); 	/* XXX fail? */
 
 	xbuflen = htonl(buflen);
-	if (atomicio(libc_write, trickled_sock, &xbuflen, sizeof(xbuflen)) !=
-	    sizeof(xbuflen))
+	if (atomicio((atomicio_f)libc_write, trickled_sock, &xbuflen,
+	    sizeof(xbuflen)) != sizeof(xbuflen))
 	    return (-1);
 
-	if (atomicio(libc_write, trickled_sock, buf, buflen) == buflen)
+	if (atomicio((atomicio_f)libc_write, trickled_sock, buf, buflen) ==
+	    buflen)
 		return (0);
 
  fail:

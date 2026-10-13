@@ -33,15 +33,13 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "util.h"
+
 /*
  * ensure all of data on socket comes through. f==read || f==write
  */
 ssize_t
-atomicio(f, fd, _s, n)
-	ssize_t (*f) ();
-	int fd;
-	void *_s;
-	size_t n;
+atomicio(atomicio_f f, int fd, void *_s, size_t n)
 {
 	char *s = _s;
 	ssize_t res, pos = 0;
